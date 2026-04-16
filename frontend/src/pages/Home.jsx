@@ -21,6 +21,8 @@ export default function Home() {
   const [current, setCurrent] = useState(0);
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [promotedAds, setPromotedAds] = useState([]);
+  const [currentAd, setCurrentAd] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -30,6 +32,14 @@ export default function Home() {
     }
 
     setUser(getStoredUser());
+
+    // Fetch promoted ads from Pro users
+    fetch("http://localhost:5000/api/posts/promoted-ads")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setPromotedAds(data);
+      })
+      .catch((err) => console.error("Failed to load promoted ads:", err));
   }, [navigate]);
 
   const videos = [
@@ -60,6 +70,15 @@ export default function Home() {
       }
     });
   }, [current]);
+
+  // Auto-rotate promoted ads
+  useEffect(() => {
+    if (promotedAds.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentAd((prev) => (prev + 1) % promotedAds.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [promotedAds]);
 
   return (
     <>
@@ -110,6 +129,98 @@ export default function Home() {
             </button>
           </div>
         </section>
+
+        {/* ── Promoted Ads from Pro Users ── */}
+        {promotedAds.length > 0 && (
+          <section className="promoted-ads-section">
+            <div className="promoted-ads-header">
+              <div className="promoted-ads-badge">📢 Sponsored</div>
+              <h2 className="promoted-ads-title">Featured Campaigns</h2>
+              <p className="promoted-ads-subtitle">Promoted by Creatixo Pro creators</p>
+            </div>
+
+            <div className="promoted-ads-carousel">
+              {promotedAds.map((ad, index) => (
+                <div
+                  key={ad._id}
+                  className={`promoted-ad-card ${index === currentAd ? 'active' : ''}`}
+                  style={{
+                    display: index === currentAd ? 'flex' : 'none',
+                  }}
+                >
+                  <div className="promoted-ad-media">
+                    {ad.adVideo ? (
+                      <video
+                        src={ad.adVideo}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="promoted-ad-video"
+                      />
+                    ) : ad.video ? (
+                      <video
+                        src={ad.video}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="promoted-ad-video"
+                      />
+                    ) : ad.image ? (
+                      <img src={ad.image} alt={ad.title} className="promoted-ad-img" />
+                    ) : (
+                      <div className="promoted-ad-placeholder">🎬</div>
+                    )}
+                  </div>
+
+                  <div className="promoted-ad-content">
+                    <div className="promoted-ad-user-row">
+                      <img
+                        src={ad.user?.avatar || "https://i.pravatar.cc/32"}
+                        alt={ad.user?.name}
+                        className="promoted-ad-avatar"
+                      />
+                      <div>
+                        <span className="promoted-ad-username">{ad.user?.name || "Creator"}</span>
+                        {ad.user?.isPro && (
+                          <span className="promoted-ad-pro-badge">✨ Pro</span>
+                        )}
+                      </div>
+                    </div>
+                    <h3 className="promoted-ad-name">{ad.title}</h3>
+                    <p className="promoted-ad-desc">{ad.description}</p>
+                    <span className="promoted-ad-category">{ad.category}</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Dots */}
+              {promotedAds.length > 1 && (
+                <div className="promoted-ads-dots">
+                  {promotedAds.map((_, idx) => (
+                    <button
+                      key={idx}
+                      className={`promoted-dot ${idx === currentAd ? 'active' : ''}`}
+                      onClick={() => setCurrentAd(idx)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: '24px' }}>
+              <Link to="/pro" style={{
+                color: '#38bdf8',
+                fontSize: '0.9rem',
+                textDecoration: 'none',
+                fontWeight: '500',
+              }}>
+                Want your campaign here? Upgrade to Pro →
+              </Link>
+            </div>
+          </section>
+        )}
 
         <section className="category-row">
           <Link to="/food" className="category-link">
