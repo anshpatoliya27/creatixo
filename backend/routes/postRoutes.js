@@ -93,35 +93,50 @@ router.post("/", verifyToken, async (req, res) => {
     let videoUrl = "";
     let adVideoUrl = "";
 
-    // Upload image to Cloudinary
+    // Upload image to Cloudinary (with local fallback)
     if (image) {
-      const result = await cloudinary.uploader.upload(image, {
-        folder: 'posts',
-      });
-      console.log('Cloudinary image upload result:', result.secure_url);
-      imageUrl = result.secure_url;
+      try {
+        const result = await cloudinary.uploader.upload(image, {
+          folder: 'posts',
+        });
+        console.log('Cloudinary image upload result:', result.secure_url);
+        imageUrl = result.secure_url;
+      } catch (err) {
+        console.warn("Cloudinary upload failed (possibly blocked by network). Falling back to saving base64 to DB.");
+        imageUrl = image; // Fallback to raw base64
+      }
     }
 
-    // Upload video to Cloudinary (Pro only)
+    // Upload video to Cloudinary (Pro only, with local fallback)
     if (video && user.isPro) {
-      const result = await cloudinary.uploader.upload(video, {
-        folder: 'posts/videos',
-        resource_type: 'video',
-        chunk_size: 6000000,
-      });
-      console.log('Cloudinary video upload result:', result.secure_url);
-      videoUrl = result.secure_url;
+      try {
+        const result = await cloudinary.uploader.upload(video, {
+          folder: 'posts/videos',
+          resource_type: 'video',
+          chunk_size: 6000000,
+        });
+        console.log('Cloudinary video upload result:', result.secure_url);
+        videoUrl = result.secure_url;
+      } catch (err) {
+        console.warn("Cloudinary video upload failed. Falling back to local base64.");
+        videoUrl = video;
+      }
     }
 
-    // Upload ad video to Cloudinary (Pro only)
+    // Upload ad video to Cloudinary (Pro only, with local fallback)
     if (adVideo && user.isPro) {
-      const result = await cloudinary.uploader.upload(adVideo, {
-        folder: 'posts/ads',
-        resource_type: 'video',
-        chunk_size: 6000000,
-      });
-      console.log('Cloudinary ad video upload result:', result.secure_url);
-      adVideoUrl = result.secure_url;
+      try {
+        const result = await cloudinary.uploader.upload(adVideo, {
+          folder: 'posts/ads',
+          resource_type: 'video',
+          chunk_size: 6000000,
+        });
+        console.log('Cloudinary ad video upload result:', result.secure_url);
+        adVideoUrl = result.secure_url;
+      } catch (err) {
+        console.warn("Cloudinary ad video upload failed. Falling back to local base64.");
+        adVideoUrl = adVideo;
+      }
     }
 
     const newPost = new Post({
@@ -143,8 +158,16 @@ router.post("/", verifyToken, async (req, res) => {
     console.log('Saved post:', populatedPost._id);
     res.status(201).json(populatedPost);
   } catch (error) {
-    console.error('Error in POST /api/posts:', error);
-    res.status(500).json({ message: "Error creating post" });
+    console.error('Error in POST /api/posts:', JSON.stringify(error, null, 2));
+    let errMsg = "Error creating post";
+    if (error && error.error && error.error.message) {
+      errMsg = "Cloudinary Error: " + error.error.message;
+    } else if (error && error.error && error.error.code === 'ECONNRESET') {
+      errMsg = "Network Error: Could not connect to Cloudinary (ECONNRESET)";
+    } else if (error && error.message) {
+      errMsg = error.message;
+    }
+    res.status(500).json({ message: errMsg });
   }
 });
 

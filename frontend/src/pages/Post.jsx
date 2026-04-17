@@ -330,6 +330,7 @@ export default function Post() {
               placeholder="Campaign Title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              required
             />
 
             <input
@@ -337,6 +338,7 @@ export default function Post() {
               placeholder="Short Tagline"
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
+              required
             />
 
             <textarea
@@ -344,6 +346,7 @@ export default function Post() {
               placeholder="Tell your campaign story..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              required
             />
 
             <select
